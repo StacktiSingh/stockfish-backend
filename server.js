@@ -37,7 +37,7 @@ app.post('/bestmove', (req, res) => {
 
   console.log('📥 Received FEN:', fen);
 
-  const enginePath = path.join(__dirname, 'stockfish', 'stockfish-windows-x86-64-avx2.exe');
+  const enginePath = path.join(__dirname, 'stockfish', 'stockfish-ubuntu-x86-64-avx2');
   const engine = spawn(enginePath);
 
   let outputBuffer = '';
