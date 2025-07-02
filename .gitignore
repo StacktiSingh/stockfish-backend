@@ -1,0 +1,26 @@
+# 🛑 Don't include dependencies
+node_modules/
+
+# 🔐 Don't include environment variables (if you use any)
+.env
+
+# 🗑️ Ignore system files
+.DS_Store
+Thumbs.db
+
+# ⚙️ Logs
+logs/
+*.log
+npm-debug.log*
+
+# 🚫 Ignore VSCode or editor settings (optional but useful)
+.vscode/
+.idea/
+
+# 💻 Ignore OS-specific files
+*.swp
+*.swo
+
+# 📦 Ignore build output if any
+dist/
+build/
