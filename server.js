@@ -4,12 +4,11 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 console.log('🟢 server.js started executing...');
-
 
 // 💬 Commentary generator
 function generateCommentary(move, evaluation) {
@@ -31,33 +30,43 @@ app.get('/', (req, res) => {
   res.send('🧠 Stockfish backend is alive!');
 });
 
+// ➕ Add /evaluate endpoint
+
 app.post('/bestmove', (req, res) => {
-  const { fen } = req.body;
+  const { fen, depth } = req.body;
   if (!fen) return res.status(400).json({ error: 'FEN is required' });
 
-  console.log('📥 Received FEN:', fen);
+  console.log('📥 Received FEN for best move:', fen);
 
-  const enginePath = path.join(__dirname, 'stockfish', 'stockfish-ubuntu-x86-64-avx2');
+  const enginePath = path.join(__dirname, 'stockfish', 'stockfish-windows-x86-64-avx2');
   const engine = spawn(enginePath);
 
   let outputBuffer = '';
-  let evaluation = '0'; // default if not found
+  let evaluation = '0';
+  let mate = null;
 
   engine.stdin.write('uci\n');
   engine.stdin.write(`position fen ${fen}\n`);
-  engine.stdin.write('go depth 12\n');
+  engine.stdin.write(`go depth ${depth || 12}\n`);
 
   engine.stdout.on('data', (data) => {
     const output = data.toString();
     console.log('📤 Stockfish says:', output);
     outputBuffer += output;
 
-    // 🔎 Extract evaluation score
+    // ✅ Extract centipawn score
     const evalMatch = output.match(/score cp (-?\d+)/);
-    if (evalMatch && evalMatch[1]) {
-      evaluation = (parseInt(evalMatch[1]) / 100).toFixed(2); // convert centipawn to normal score
+    if (evalMatch) {
+      evaluation = (parseInt(evalMatch[1]) / 100).toFixed(2);
     }
 
+    // ✅ Extract mate score if present
+    const mateMatch = output.match(/score mate (-?\d+)/);
+    if (mateMatch) {
+      mate = parseInt(mateMatch[1]);
+    }
+
+    // ✅ When bestmove is found
     if (output.includes('bestmove')) {
       const match = output.match(/bestmove (\S+)/);
       if (match && match[1]) {
@@ -69,6 +78,8 @@ app.post('/bestmove', (req, res) => {
         res.json({
           bestMove,
           evaluation,
+          mate,
+          depth: depth || 12,
           commentary
         });
       } else {
@@ -93,12 +104,10 @@ app.post('/bestmove', (req, res) => {
       res.status(500).json({ error: 'Timeout' });
       engine.kill();
     }
-  }, 5000);
+  }, 10000); // ⏱ Increase if needed
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Stockfish server running at http://localhost:${PORT}`);
-
 });
-
-
