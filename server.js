@@ -74,6 +74,7 @@ app.post('/bestmove', (req, res) => {
         console.log('✅ Best move:', bestMove);
 
         const commentary = generateCommentary(bestMove, evaluation);
+        print(bestMove, evaluation, mate)
 
         res.json({
           bestMove,
