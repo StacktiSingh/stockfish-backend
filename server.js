@@ -36,10 +36,12 @@ app.post('/evaluate', (req, res) => {
   const { fen, depth } = req.body;
   if (!fen) return res.status(400).json({ error: 'FEN is required' });
 
+  console.log('📥 EVALUATE received for player move:', fen);
+
   const enginePath = path.join(__dirname, 'stockfish', 'stockfish-ubuntu-x86-64-avx2');
   const engine = spawn(enginePath);
 
-  let evaluation = '0';
+  let evaluation = 0;
   let mate = null;
 
   engine.stdin.write('uci\n');
@@ -48,37 +50,45 @@ app.post('/evaluate', (req, res) => {
 
   engine.stdout.on('data', (data) => {
     const output = data.toString();
+
+    // Extract evaluation
     const evalMatch = output.match(/score cp (-?\d+)/);
-    if (evalMatch) {
-      evaluation = (parseInt(evalMatch[1]) / 100).toFixed(2);
-    }
+    if (evalMatch) evaluation = parseInt(evalMatch[1]);
 
     const mateMatch = output.match(/score mate (-?\d+)/);
-    if (mateMatch) {
-      mate = parseInt(mateMatch[1]);
-    }
+    if (mateMatch) mate = parseInt(mateMatch[1]);
 
     if (output.includes('bestmove')) {
-      res.json({ evaluation, mate, depth: depth || 12 });
+      console.log('✅ Eval-only response:', { evaluation, mate });
+
+      res.json({
+        evaluation,
+        mate,
+        depth: depth || 12
+      });
+
       engine.kill();
     }
   });
 
   engine.stderr.on('data', (err) => {
-    console.error('🚨 Stockfish error:', err.toString());
+    console.error('❌ Stockfish error:', err.toString());
   });
 
   engine.on('error', (err) => {
+    console.error('🔥 Engine spawn failed:', err.toString());
     res.status(500).json({ error: 'Engine failed to start' });
   });
 
   setTimeout(() => {
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Timeout' });
+      console.error('⏳ Evaluation timed out.');
+      res.status(500).json({ error: 'Timeout during evaluation' });
       engine.kill();
     }
   }, 10000);
 });
+
 
 
 app.post('/bestmove', (req, res) => {
