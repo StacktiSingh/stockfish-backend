@@ -32,6 +32,55 @@ app.get('/', (req, res) => {
 
 // ➕ Add /evaluate endpoint
 
+app.post('/evaluate', (req, res) => {
+  const { fen, depth } = req.body;
+  if (!fen) return res.status(400).json({ error: 'FEN is required' });
+
+  const enginePath = path.join(__dirname, 'stockfish', 'stockfish-ubuntu-x86-64-avx2');
+  const engine = spawn(enginePath);
+
+  let evaluation = '0';
+  let mate = null;
+
+  engine.stdin.write('uci\n');
+  engine.stdin.write(`position fen ${fen}\n`);
+  engine.stdin.write(`go depth ${depth || 12}\n`);
+
+  engine.stdout.on('data', (data) => {
+    const output = data.toString();
+    const evalMatch = output.match(/score cp (-?\d+)/);
+    if (evalMatch) {
+      evaluation = (parseInt(evalMatch[1]) / 100).toFixed(2);
+    }
+
+    const mateMatch = output.match(/score mate (-?\d+)/);
+    if (mateMatch) {
+      mate = parseInt(mateMatch[1]);
+    }
+
+    if (output.includes('bestmove')) {
+      res.json({ evaluation, mate, depth: depth || 12 });
+      engine.kill();
+    }
+  });
+
+  engine.stderr.on('data', (err) => {
+    console.error('🚨 Stockfish error:', err.toString());
+  });
+
+  engine.on('error', (err) => {
+    res.status(500).json({ error: 'Engine failed to start' });
+  });
+
+  setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Timeout' });
+      engine.kill();
+    }
+  }, 10000);
+});
+
+
 app.post('/bestmove', (req, res) => {
   const { fen, depth } = req.body;
   if (!fen) return res.status(400).json({ error: 'FEN is required' });
